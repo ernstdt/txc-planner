@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TechXchange Planner</title>
+<style>
+:root{
+  --bg:#f4f5f7;--panel:#ffffff;--ink:#16181d;--muted:#5d6472;--line:#dfe2e8;
+  --accent:#0f62fe;--accent-ink:#ffffff;--ok:#198038;--ok-bg:#defbe6;
+  --warn:#8a3800;--warn-bg:#fff2e8;--dim:#9aa0ab;--chip:#e8ebf1;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121417;--panel:#1c1f24;--ink:#eceef2;--muted:#a3a9b5;--line:#2e333b;
+    --accent:#4589ff;--accent-ink:#0b0d10;--ok:#42be65;--ok-bg:#12301b;
+    --warn:#ffb784;--warn-bg:#3a2414;--dim:#6b7280;--chip:#2a2e35;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121417;--panel:#1c1f24;--ink:#eceef2;--muted:#a3a9b5;--line:#2e333b;
+  --accent:#4589ff;--accent-ink:#0b0d10;--ok:#42be65;--ok-bg:#12301b;
+  --warn:#ffb784;--warn-bg:#3a2414;--dim:#6b7280;--chip:#2a2e35;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+button,input,select,textarea{font:inherit;color:inherit}
+header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line);
+  padding:10px 16px 8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+h1{font-size:18px;margin:0;flex:1;min-width:160px}
+.count{font-size:13px;color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:8px 12px;
+  min-height:40px;cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.search{flex:1;min-width:180px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;
+  background:var(--bg);min-height:40px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0 2px;scrollbar-width:none}
+.chip{white-space:nowrap;border:0;background:var(--chip);border-radius:999px;padding:7px 12px;
+  font-size:14px;cursor:pointer;min-height:36px}
+.chip.on{background:var(--accent);color:var(--accent-ink)}
+main{max-width:980px;margin:0 auto;padding:12px 16px 80px}
+.day{margin:18px 0 6px;font-size:15px;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.04em}
+.slot{font-size:13px;font-weight:600;color:var(--muted);margin:14px 0 6px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;
+  margin:0 0 8px;display:flex;gap:12px;align-items:flex-start}
+.card .body{flex:1;min-width:0}
+.card .t{font-weight:600;margin:0 0 3px}
+.meta{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px}
+.card.sel{border-color:var(--ok);background:var(--ok-bg)}
+.card.clash{opacity:.45;filter:grayscale(1)}
+.card.clash .why{opacity:1}
+.why{font-size:13px;color:var(--warn);background:var(--warn-bg);border-radius:8px;padding:4px 8px;
+  margin-top:6px;display:inline-block}
+details{margin-top:6px;font-size:14px;color:var(--muted)}
+summary{cursor:pointer}
+.act{display:flex;flex-direction:column;gap:6px;flex:none}
+.add{min-width:84px}
+.sel .add{background:var(--ok);border-color:var(--ok);color:#fff}
+.empty{background:var(--panel);border:1px dashed var(--line);border-radius:12px;padding:20px;margin-top:16px}
+.empty h2{margin:0 0 8px;font-size:18px}
+.empty ol{padding-left:20px}
+code,pre{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px}
+pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;overflow:auto;
+  white-space:pre-wrap;word-break:break-all}
+dialog{border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--ink);
+  width:min(640px,94vw);max-height:90vh;padding:16px}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+label{display:block;font-size:13px;color:var(--muted);margin:8px 0 3px}
+dialog input,dialog textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+  background:var(--bg)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--panel);
+  padding:10px 14px;border-radius:10px;font-size:14px;z-index:20;display:none;max-width:90vw}
+@media (max-width:560px){.card{flex-direction:column}.act{flex-direction:row}}
+</style>
+</head>
+<body>
+<script id="tx-data" type="application/json">null</script>
+
+<header>
+  <div class="row">
+    <h1>TechXchange 2026 Planner</h1>
+    <span class="count" id="count"></span>
+    <button class="btn" id="menuBtn">Data &amp; export</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <input class="search" id="q" type="search" placeholder="Search title, code, speaker, room…">
+    <button class="btn" id="viewBtn">My schedule</button>
+    <button class="btn" id="hideBtn">Hide clashes</button>
+  </div>
+  <div class="chips" id="days"></div>
+</header>
+
+<main id="list"></main>
+
+<dialog id="menu">
+  <div class="row"><h1>Data &amp; export</h1><button class="btn" data-close>Close</button></div>
+  <label>Import sessions — saved catalog page (.mhtml/.html), HAR, JSON or CSV. Pick several files at once if you like.</label>
+  <input type="file" id="file" multiple accept=".mhtml,.mht,.html,.htm,.har,.json,.csv,.txt">
+  <div class="row" style="margin-top:12px">
+    <button class="btn primary" id="saveCopy">Save offline copy (.html)</button>
+    <button class="btn" id="ics">My schedule → calendar (.ics)</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <button class="btn" id="addBtn">Add a session by hand</button>
+    <button class="btn" id="csvTpl">CSV template</button>
+    <button class="btn" id="clearSel">Clear my picks</button>
+    <button class="btn" id="clearAll">Remove all sessions</button>
+  </div>
+  <p class="count" style="margin-top:12px">“Save offline copy” downloads this page with every session and your picks built in.
+  Open that file on the tablet in Chrome — no internet needed. Picks you make on the tablet are kept in that browser;
+  save a fresh copy any time to back them up.</p>
+</dialog>
+
+<dialog id="addDlg">
+  <form method="dialog" id="addForm">
+    <div class="row"><h1>Add a session</h1></div>
+    <label>Title</label><input name="title" required>
+    <div class="grid">
+      <div><label>Date</label><input name="day" type="date" value="2026-10-27" required></div>
+      <div><label>Room</label><input name="room"></div>
+      <div><label>Start</label><input name="start" type="time" required></div>
+      <div><label>End</label><input name="end" type="time" required></div>
+    </div>
+    <label>Session code (optional)</label><input name="code">
+    <div class="row" style="margin-top:14px">
+      <button class="btn primary" value="ok">Add</button>
+      <button class="btn" value="cancel" formnovalidate>Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* ---------- Pure logic (no DOM) ---------- */
+const EVENT_UTC_OFFSET_MIN = -240; // Atlanta, EDT in late October
+
+function parseClock(v){
+  if (v == null || v === "") return null;
+  if (typeof v === "number") return v > 1440 ? null : v;
+  const m = String(v).match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp])?\.?\s*[Mm]?/);
+  if (!m) return null;
+  let h = +m[1]; const min = +m[2]; const ap = m[3] && m[3].toLowerCase();
+  if (ap === "p" && h < 12) h += 12;
+  if (ap === "a" && h === 12) h = 0;
+  return h * 60 + min;
+}
+function parseDate(v){
+  if (!v) return null;
+  const s = String(v);
+  let m = s.match(/(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2,"0")}-${m[3].padStart(2,"0")}`;
+  m = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); // US m/d/yyyy
+  if (m) return `${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`;
+  const months = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+  m = s.match(/([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})/);
+  if (m && months[m[1].toLowerCase()]) return `${m[3]}-${String(months[m[1].toLowerCase()]).padStart(2,"0")}-${m[2].padStart(2,"0")}`;
+  return null;
+}
+function fromUtc(v){ // UTC timestamp -> local event date + minutes
+  if (v == null) return null;
+  let ms = typeof v === "number" ? (v < 1e12 ? v * 1000 : v) : Date.parse(String(v).replace(" ", "T").replace(/\//g,"-") + (/[zZ]|[+-]\d\d:?\d\d$/.test(String(v)) ? "" : "Z"));
+  if (!isFinite(ms)) return null;
+  const d = new Date(ms + EVENT_UTC_OFFSET_MIN * 60000);
+  return { day: d.toISOString().slice(0,10), min: d.getUTCHours()*60 + d.getUTCMinutes() };
+}
+function clean(s){ return s == null ? "" : String(s).replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim(); }
+
+function speakersOf(o){
+  const list = o.participants || o.speakers || o.presenters || [];
+  if (typeof list === "string") return list;
+  if (!Array.isArray(list)) return "";
+  return list.map(p => typeof p === "string" ? p :
+    clean(p.fullName || p.name || [p.firstName || p.globalFirstName, p.lastName || p.globalLastName].filter(Boolean).join(" ")))
+    .filter(Boolean).join(", ");
+}
+function attrsOf(o){
+  const out = {};
+  const av = o.attributevalues || o.attributeValues || o.attributes;
+  if (Array.isArray(av)) for (const a of av){
+    const k = clean(a.attribute || a.name || a.attributeName); const v = clean(a.value || a.attributeValue);
+    if (k && v) out[k] = out[k] ? out[k] + ", " + v : v;
+  }
+  return out;
+}
+function pick(attrs, re){ for (const k in attrs) if (re.test(k)) return attrs[k]; return ""; }
+
+function slotsFromSession(o){
+  const attrs = attrsOf(o);
+  const base = {
+    key: clean(o.sessionID || o.sessionId || o.id || o.code || o.title),
+    code: clean(o.code || o.sessionCode || o.abbreviation),
+    title: clean(o.title || o.name),
+    abstract: clean(o.abstract || o.description),
+    type: clean(o.type || o.sessionType || pick(attrs, /session type|format|type/i)),
+    track: clean(o.track || pick(attrs, /track|topic|product|theme/i)),
+    level: clean(o.level || pick(attrs, /level/i)),
+    speakers: speakersOf(o)
+  };
+  let times = Array.isArray(o.times) ? o.times : Array.isArray(o.sessionTimes) ? o.sessionTimes : null;
+  if (!times || !times.length) times = [o];
+  const out = [];
+  times.forEach((t, i) => {
+    let day = parseDate(t.date || t.startDate || t.day || t.startTime);
+    let start = parseClock(t.startTime || t.start || t.time);
+    let end = parseClock(t.endTime || t.end);
+    if ((day == null || start == null) && (t.utcStartTime || t.startTimeUtc || t.utcStart)) {
+      const u = fromUtc(t.utcStartTime || t.startTimeUtc || t.utcStart);
+      if (u){ day = day || u.day; if (start == null) start = u.min; }
+    }
+    if (end == null && (t.utcEndTime || t.endTimeUtc)) { const u = fromUtc(t.utcEndTime || t.endTimeUtc); if (u) end = u.min; }
+    const len = +(t.length || t.duration || o.length || o.duration || 0);
+    if (end == null && start != null && len) end = start + len;
+    if (end != null && start != null && end <= start) end = start + (len || 30);
+    const room = clean(t.room || t.roomName || t.location || o.room || o.location);
+    out.push(Object.assign({}, base, {
+      id: (base.key || base.title) + "|" + (day || "") + "|" + (start ?? i) + "|" + i,
+      day: start == null ? null : day, start: day ? start : null, end: day ? end : null, room
+    }));
+  });
+  return out;
+}
+
+function looksLikeSession(o){
+  return o && typeof o === "object" && !Array.isArray(o) &&
+    typeof (o.title || o.name) === "string" &&
+    (Array.isArray(o.times) || Array.isArray(o.sessionTimes) || "sessionID" in o || "sessionId" in o ||
+     ("code" in o && ("abstract" in o || "participants" in o)));
+}
+function collectSessions(root){
+  const found = [];
+  (function walk(n, depth){
+    if (!n || typeof n !== "object" || depth > 40) return;
+    if (looksLikeSession(n)) { found.push(n); return; }
+    if (Array.isArray(n)) n.forEach(c => walk(c, depth+1));
+    else for (const k in n) walk(n[k], depth+1);
+  })(root, 0);
+  return found;
+}
+function b64decode(s){
+  if (typeof atob === "function") return decodeURIComponent(escape(atob(s)));
+  return Buffer.from(s, "base64").toString("utf8");
+}
+function parseJsonOrHar(text){
+  const j = JSON.parse(text);
+  if (j && j.log && Array.isArray(j.log.entries)) { // HAR
+    const all = [];
+    for (const e of j.log.entries){
+      const c = e.response && e.response.content; if (!c || !c.text) continue;
+      const mt = (c.mimeType || "") + " " + (e.request && e.request.url || "");
+      if (!/json|api|search|session/i.test(mt)) continue;
+      let t = c.encoding === "base64" ? (()=>{ try { return b64decode(c.text); } catch(_) { return ""; } })() : c.text;
+      try { all.push(...collectSessions(JSON.parse(t))); } catch(_) {}
+    }
+    return all.flatMap(slotsFromSession);
+  }
+  return collectSessions(j).flatMap(slotsFromSession);
+}
+function parseCsv(text){
+  const rows = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (q){ if (c === '"'){ if (text[i+1] === '"'){ f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ","){ row.push(f); f = ""; }
+    else if (c === "\n" || c === "\r"){ if (c === "\r" && text[i+1] === "\n") i++; row.push(f); rows.push(row); row = []; f = ""; }
+    else f += c;
+  }
+  if (f || row.length){ row.push(f); rows.push(row); }
+  const head = (rows.shift() || []).map(h => h.trim().toLowerCase());
+  const col = re => head.findIndex(h => re.test(h));
+  const ix = { title: col(/^(title|session( title)?|name)$/), code: col(/code/), date: col(/^(date|day)$/),
+    start: col(/start/), end: col(/end/), room: col(/room|location/), type: col(/type|format/),
+    track: col(/track|topic/), speakers: col(/speaker|presenter/), abstract: col(/abstract|description/) };
+  return rows.filter(r => r.some(x => x.trim())).flatMap(r => {
+    const g = k => ix[k] >= 0 ? r[ix[k]] : "";
+    return slotsFromSession({ title: g("title"), code: g("code"), date: g("date"), startTime: g("start"),
+      endTime: g("end"), room: g("room"), type: g("type"), track: g("track"),
+      speakers: g("speakers"), abstract: g("abstract") });
+  });
+}
+function mergeSlots(existing, incoming){
+  const map = new Map(existing.map(s => [s.id, s]));
+  let added = 0;
+  for (const s of incoming){ if (!s.title) continue; if (!map.has(s.id)) added++; map.set(s.id, s); }
+  return { list: [...map.values()], added };
+}
+function overlaps(a, b){
+  return a.day && a.day === b.day && a.start != null && b.start != null &&
+    a.start < (b.end ?? b.start + 30) && b.start < (a.end ?? a.start + 30);
+}
+function conflictFor(slot, selectedSlots){
+  for (const s of selectedSlots){
+    if (s.id === slot.id) continue;
+    if (overlaps(slot, s)) return { kind: "time", with: s };
+    if (s.key && s.key === slot.key) return { kind: "same", with: s };
+  }
+  return null;
+}
+function fmtTime(m){
+  if (m == null) return "";
+  const h = Math.floor(m/60) % 24, mm = String(m%60).padStart(2,"0");
+  return `${(h % 12) || 12}:${mm} ${h < 12 ? "AM" : "PM"}`;
+}
+function fmtDay(d){
+  if (!d) return "Unscheduled / on demand";
+  const dt = new Date(d + "T12:00:00Z");
+  return dt.toLocaleDateString("en-US", { weekday:"long", month:"short", day:"numeric", timeZone:"UTC" });
+}
+function toIcs(slots){
+  const z = (day, min) => { const ms = Date.parse(day + "T00:00:00Z") + (min - EVENT_UTC_OFFSET_MIN) * 60000;
+    return new Date(ms).toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,""); };
+  const esc = s => String(s || "").replace(/[\\;,]/g, m => "\\" + m).replace(/\n/g, "\\n");
+  const stamp = new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
+  const lines = ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//TechXchange Planner//EN","CALSCALE:GREGORIAN"];
+  slots.filter(s => s.day && s.start != null).forEach(s => {
+    lines.push("BEGIN:VEVENT", "UID:" + encodeURIComponent(s.id) + "@txplanner", "DTSTAMP:" + stamp,
+      "DTSTART:" + z(s.day, s.start), "DTEND:" + z(s.day, s.end ?? s.start + 30),
+      "SUMMARY:" + esc((s.code ? s.code + " " : "") + s.title), "LOCATION:" + esc(s.room),
+      "DESCRIPTION:" + esc([s.speakers, s.abstract].filter(Boolean).join("\n\n")), "END:VEVENT");
+  });
+  lines.push("END:VCALENDAR");
+  return lines.join("\r\n");
+}
+/* Saved catalog page (Chrome "Save as… Webpage, Single File" = .mhtml, or plain .html) */
+function extractHtml(text){
+  if (!/multipart\/related/i.test(text.slice(0, 3000))) return text;
+  const bm = text.match(/boundary="?([^";\r\n]+)"?/i); if (!bm) return text;
+  const part = text.split("--" + bm[1]).find(p => /Content-Type:\s*text\/html/i.test(p.slice(0, 600)));
+  if (!part) return text;
+  const cut = part.search(/\r?\n\r?\n/); const headers = part.slice(0, cut);
+  let body = part.slice(cut).replace(/^\s+/, "");
+  if (/quoted-printable/i.test(headers)) {
+    const flat = body.replace(/=\r?\n/g, ""); const bytes = [];
+    for (let i = 0; i < flat.length; i++) {
+      if (flat[i] === "=" && /^[0-9A-F]{2}$/i.test(flat.substr(i+1, 2))) { bytes.push(parseInt(flat.substr(i+1, 2), 16)); i += 2; }
+      else { const enc = new TextEncoder().encode(flat[i]); bytes.push(...enc); }
+    }
+    body = new TextDecoder().decode(new Uint8Array(bytes));
+  }
+  return body;
+}
+function parseCatalogHtml(text, year){
+  const doc = new DOMParser().parseFromString(extractHtml(text), "text/html");
+  const T = el => el ? clean(el.textContent) : "";
+  const out = [];
+  doc.querySelectorAll("li.catalog-result").forEach(li => {
+    const raw = T(li.querySelector(".title-text") || li.querySelector(".catalog-result-title"));
+    const cm = raw.match(/\[([A-Z0-9]+\s*-\s*[A-Z0-9-]+)\]\s*$/i);
+    if (cm) cm[1] = cm[1].replace(/\s+/g, "");
+    const attr = n => T(li.querySelector(".attribute-" + n + " .attribute-values"));
+    const speakers = [...li.querySelectorAll(".speaker-details p")].map(p => T(p).replace(/\s+,/g, ",")).filter(Boolean).join("; ");
+    const times = [...li.querySelectorAll(".times-component .session-actions > li, .session-time-and-location")]
+      .filter((el, i, arr) => !arr.some(o => o !== el && o.contains(el)))
+      .map(el => {
+        const tt = T(el.querySelector(".session-time")); const [st, en] = tt.split(/\s+[-–]\s+/);
+        return { date: T(el.querySelector(".session-date")) + ", " + year, startTime: st, endTime: en,
+                 room: T(el.querySelector(".session-location")) };
+      }).filter(t => t.startTime);
+    out.push(...slotsFromSession({ code: cm ? cm[1] : "", title: cm ? raw.slice(0, cm.index).trim() : raw,
+      abstract: T(li.querySelector(".description")), speakers,
+      type: attr("ActivityType"), track: attr("TechTrack") || attr("SessionTopic"), level: attr("TechnicalLevel"),
+      times }));
+  });
+  return out;
+}
+if (typeof module !== "undefined") module.exports = { parseJsonOrHar, parseCsv, conflictFor, overlaps, toIcs, mergeSlots, parseClock, parseDate };
+
+/* ---------- App (DOM) ---------- */
+if (typeof document !== "undefined") (function(){
+  const SOURCE = "<!doctype html>\n" + document.documentElement.outerHTML;
+  const LS = "txplanner26";
+  const $ = id => document.getElementById(id);
+  let state = { sessions: [], selected: [], savedAt: 0 };
+  let ui = { day: "all", q: "", mine: false, hide: false };
+
+  function load(){
+    let emb = null, loc = null;
+    try { emb = JSON.parse($("tx-data").textContent); } catch(_) {}
+    try { loc = JSON.parse(localStorage.getItem(LS)); } catch(_) {}
+    const best = [emb, loc].filter(x => x && Array.isArray(x.sessions)).sort((a,b) => (b.savedAt||0) - (a.savedAt||0))[0];
+    if (best) state = { sessions: best.sessions, selected: best.selected || [], savedAt: best.savedAt || 0 };
+  }
+  function persist(){
+    state.savedAt = Date.now();
+    try { localStorage.setItem(LS, JSON.stringify(state)); } catch(_) {}
+  }
+  function toast(msg){ const t = $("toast"); t.textContent = msg; t.style.display = "block";
+    clearTimeout(toast.h); toast.h = setTimeout(() => t.style.display = "none", 3200); }
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+  function selectedSlots(){ const set = new Set(state.selected); return state.sessions.filter(s => set.has(s.id)); }
+  function sortSlots(a,b){ return (a.day||"9999").localeCompare(b.day||"9999") || (a.start??9999)-(b.start??9999) || a.title.localeCompare(b.title); }
+
+  function render(){
+    const sel = selectedSlots(), selSet = new Set(state.selected);
+    $("count").textContent = state.sessions.length ? `${sel.length} picked · ${state.sessions.length} sessions` : "";
+    $("viewBtn").classList.toggle("primary", ui.mine);
+    $("hideBtn").classList.toggle("primary", ui.hide);
+
+    const days = [...new Set(state.sessions.map(s => s.day || ""))].sort((a,b)=>(a||"9999").localeCompare(b||"9999"));
+    $("days").innerHTML = state.sessions.length ? [["all","All days"], ...days.map(d => [d, d ? fmtDay(d).replace(/,.*$/,"") + " " + d.slice(8) : "On demand"])]
+      .map(([v,l]) => `<button class="chip ${ui.day===v?"on":""}" data-day="${esc(v)}">${esc(l)}</button>`).join("") : "";
+
+    if (!state.sessions.length){ $("list").innerHTML = emptyHtml(); return; }
+
+    const q = ui.q.toLowerCase();
+    let rows = state.sessions.filter(s =>
+      (ui.day === "all" || (s.day||"") === ui.day) &&
+      (!ui.mine || selSet.has(s.id)) &&
+      (!q || [s.title,s.code,s.speakers,s.room,s.track,s.type,s.abstract].join(" ").toLowerCase().includes(q)));
+    const items = rows.sort(sortSlots).map(s => ({ s, on: selSet.has(s.id), c: selSet.has(s.id) ? null : conflictFor(s, sel) }))
+      .filter(x => !(ui.hide && x.c));
+
+    if (!items.length){ $("list").innerHTML = `<div class="empty">${ui.mine ? "No picks yet for this view." : "Nothing matches."}</div>`; return; }
+    let html = "", lastDay = null, lastSlot = null;
+    for (const {s, on, c} of items){
+      if (s.day !== lastDay){ html += `<div class="day">${esc(fmtDay(s.day))}</div>`; lastDay = s.day; lastSlot = null; }
+      const slotLbl = s.start != null ? fmtTime(s.start) : "";
+      if (slotLbl && slotLbl !== lastSlot){ html += `<div class="slot">${slotLbl}</div>`; lastSlot = slotLbl; }
+      const why = c ? (c.kind === "same" ? `Already booked at ${fmtTime(c.with.start)} ${esc(fmtDay(c.with.day).replace(/,.*$/,""))}`
+                                         : `Clashes with: ${esc(c.with.title)} (${fmtTime(c.with.start)}–${fmtTime(c.with.end)})`) : "";
+      html += `<div class="card ${on?"sel":""} ${c?"clash":""}">
+        <div class="body">
+          <p class="t">${esc(s.title)}</p>
+          <div class="meta">
+            ${s.start!=null?`<span>${fmtTime(s.start)}${s.end!=null?"–"+fmtTime(s.end):""}</span>`:""}
+            ${s.code?`<span>${esc(s.code)}</span>`:""}${s.room?`<span>📍 ${esc(s.room)}</span>`:""}
+            ${s.type?`<span>${esc(s.type)}</span>`:""}${s.track?`<span>${esc(s.track)}</span>`:""}
+          </div>
+          ${s.speakers?`<div class="meta" style="margin-top:3px">${esc(s.speakers)}</div>`:""}
+          ${why?`<div class="why">${why}</div>`:""}
+          ${s.abstract?`<details><summary>Abstract</summary><p>${esc(s.abstract)}</p></details>`:""}
+        </div>
+        <div class="act">
+          ${on ? `<button class="btn add" data-rm="${esc(s.id)}">✓ Picked</button>`
+               : c ? `<button class="btn add" disabled>Taken</button><button class="btn" data-swap="${esc(s.id)}" data-out="${esc(c.with.id)}">Swap</button>`
+                   : `<button class="btn add primary" data-add="${esc(s.id)}">Add</button>`}
+        </div></div>`;
+    }
+    $("list").innerHTML = html;
+  }
+
+  function emptyHtml(){
+    const snippet = `(()=>{const cap=[];const keep=(u,t)=>{if(/\\/api\\//.test(u)){try{cap.push(JSON.parse(t));console.log('captured',cap.length)}catch(e){}}};
+const o=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m,u){this.__u=u;return o.apply(this,arguments)};
+const sd=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.send=function(){this.addEventListener('load',()=>keep(String(this.__u),this.responseText));return sd.apply(this,arguments)};
+const f=window.fetch;window.fetch=async(...a)=>{const r=await f(...a);try{keep(String(a[0]&&a[0].url||a[0]),await r.clone().text())}catch(e){}return r};
+window.txSave=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(cap)],{type:'application/json'}));a.download='techxchange26-sessions.json';a.click()};
+console.log('Ready. Now load the sessions, then run txSave()');})();`;
+    return `<div class="empty">
+      <h2>Load the session catalog</h2>
+      <p>The IBM catalog only loads its sessions inside a live browser, so grab them once on a laptop, import here, then save the offline copy for the tablet.</p>
+      <p><b>Easiest — save the page:</b></p>
+      <ol>
+        <li>Open the session catalog in Chrome on a laptop.</li>
+        <li>Scroll to the very bottom, pressing <b>Show more</b> until all sessions (about 1,317) have loaded.</li>
+        <li>Press <b>Ctrl+S</b> (Cmd+S on Mac) and choose <b>Webpage, Single File</b>.</li>
+        <li>Open this page → <b>Data &amp; export</b> → import that file.</li>
+      </ol>
+      <p><b>Alternative — HAR file:</b> F12 → <b>Network</b>, reload, scroll until everything loads, right-click the list →
+      <b>Save all as HAR with content</b>, then import it.</p>
+      <p><b>Option B — console snippet:</b> on the catalog page press F12 → <b>Console</b>, paste this, press Enter,
+      then change a filter or scroll to load everything, and type <code>txSave()</code>. Import the downloaded JSON.</p>
+      <pre>${esc(snippet)}</pre>
+      <p><b>Option C:</b> import a CSV (columns: title, code, date, start, end, room, type, track, speakers, abstract) or add sessions by hand.</p>
+      <p>Then tap <b>Save offline copy</b> and copy that .html file to the tablet.</p>
+    </div>`;
+  }
+
+  async function importFiles(files){
+    let incoming = [], bad = [];
+    for (const f of files){
+      const text = await f.text();
+      try {
+        const slots = /multipart\/related|<html|catalog-result/i.test(text.slice(0, 200000)) && !/^\s*[\[{]/.test(text) ? parseCatalogHtml(text, 2026)
+          : /\.csv$/i.test(f.name) || /^[^{\[]*,/.test(text.slice(0,200)) && !/^\s*[\[{]/.test(text) ? parseCsv(text) : parseJsonOrHar(text);
+        if (!slots.length) bad.push(f.name); incoming.push(...slots);
+      } catch(e){ bad.push(f.name); }
+    }
+    const r = mergeSlots(state.sessions, incoming);
+    state.sessions = r.list; persist(); render();
+    toast(`${r.added} new session slots imported` + (bad.length ? ` · no sessions found in ${bad.join(", ")}` : ""));
+  }
+  function download(name, text, type){
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }
+  function saveCopy(){
+    persist();
+    const json = JSON.stringify(state).replace(/</g, "\\u003c");
+    const open = '<script id="tx-' + 'data" type="application/json">';
+    const i = SOURCE.indexOf(open), j = SOURCE.indexOf("</" + "script>", i);
+    if (i < 0 || j < 0) return toast("Couldn't build the copy");
+    download("techxchange26-planner.html", SOURCE.slice(0, i + open.length) + json + SOURCE.slice(j), "text/html");
+    toast("Saved — copy the file to your tablet and open it in Chrome");
+  }
+
+  document.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.day !== undefined){ ui.day = b.dataset.day; render(); return; }
+    if (b.dataset.add){
+      const s = state.sessions.find(x => x.id === b.dataset.add);
+      if (s && !conflictFor(s, selectedSlots())){ state.selected.push(s.id); persist(); render(); }
+      return;
+    }
+    if (b.dataset.rm){ state.selected = state.selected.filter(id => id !== b.dataset.rm); persist(); render(); return; }
+    if (b.dataset.swap){
+      const out = state.sessions.find(x => x.id === b.dataset.out);
+      if (!confirm(`Drop “${out ? out.title : "the other session"}” and pick this one instead?`)) return;
+      state.selected = state.selected.filter(id => id !== b.dataset.out);
+      const s = state.sessions.find(x => x.id === b.dataset.swap);
+      if (s && !conflictFor(s, selectedSlots())) state.selected.push(s.id);
+      else toast("Still clashes with another pick");
+      persist(); render(); return;
+    }
+    if (b.hasAttribute("data-close")) b.closest("dialog").close();
+  });
+  $("q").addEventListener("input", e => { ui.q = e.target.value; render(); });
+  $("viewBtn").onclick = () => { ui.mine = !ui.mine; render(); };
+  $("hideBtn").onclick = () => { ui.hide = !ui.hide; render(); };
+  $("menuBtn").onclick = () => $("menu").showModal();
+  $("file").onchange = e => { importFiles([...e.target.files]); e.target.value = ""; $("menu").close(); };
+  $("saveCopy").onclick = () => { $("menu").close(); saveCopy(); };
+  $("ics").onclick = () => { const s = selectedSlots(); if (!s.length) return toast("Pick some sessions first");
+    download("techxchange26-my-schedule.ics", toIcs(s), "text/calendar"); };
+  $("csvTpl").onclick = () => download("techxchange26-template.csv",
+    "title,code,date,start,end,room,type,track,speakers,abstract\nExample session,ABC-1234,2026-10-27,10:30 AM,11:00 AM,Room 101,Breakout,AI,Jane Doe,Short description\n", "text/csv");
+  $("clearSel").onclick = () => { if (confirm("Clear all your picks?")) { state.selected = []; persist(); render(); } };
+  $("clearAll").onclick = () => { if (confirm("Remove every session and pick?")) { state = { sessions: [], selected: [], savedAt: 0 }; persist(); render(); $("menu").close(); } };
+  $("addBtn").onclick = () => { $("menu").close(); $("addForm").reset(); $("addDlg").showModal(); };
+  $("addDlg").addEventListener("close", () => {
+    if ($("addDlg").returnValue !== "ok") return;
+    const f = new FormData($("addForm"));
+    const slots = parseCsv("title,code,date,start,end,room\n" + ["title","code","day","start","end","room"]
+      .map(k => '"' + String(f.get(k) || "").replace(/"/g,'""') + '"').join(","));
+    state.sessions = mergeSlots(state.sessions, slots).list; persist(); render(); toast("Session added");
+  });
+
+  load(); render();
+})();
+</script>
+</body>
+</html>
